@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include "TransactionStore.h"
-#include "TransactionStoreV2.h"
 
 static std::vector<Transaction> transactionsSet1 =
         {
@@ -39,26 +38,24 @@ static std::vector<Transaction> transactionsSet2 =
                 {"882346125300012378005",      832,  std::numeric_limits<double>::max()/1.5},
                 {"882346125300012378005",      54,   std::numeric_limits<double>::max()/3.0},
                 {"882346125300012378005",      497,  std::numeric_limits<double>::max()/3.0},
-                {"346000348800234771003",      47,   std::numeric_limits<double>::min()/2.0},
-                {"346000348800234771003",      65,   std::numeric_limits<double>::min()/2.0},
-                {"346000348800234771003",      44,   std::numeric_limits<double>::min()/2.0}
+                {"34600034880023477100324124340001",      47,   std::numeric_limits<double>::min()/2.0},
+                {"34600034880023477100324124340001",      65,   std::numeric_limits<double>::min()/2.0},
+                {"34600034880023477100324124340001",      44,   std::numeric_limits<double>::min()/2.0}
         };
 
 TEST(txTests, findTransaction) {
-    Database *db = new TransactionStoreV2();
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
     db->setTransactions(transactionsSet1);
 
     Transaction transaction = db->findTransaction("56102055610000310200008433", 5611);
 
     EXPECT_EQ(5611.00, transaction.amount);
     EXPECT_ANY_THROW(db->findTransaction("invalid", 0));
-
-    delete db;
 }
 
 TEST(txTests, findTransactions)
 {
-    Database *db = new TransactionStoreV2();
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
     db->setTransactions(transactionsSet1);
     auto t = db->findTransactions("35102049000000990200522828");
 
@@ -70,33 +67,95 @@ TEST(txTests, findTransactions)
     EXPECT_EQ(2, t2.size());
     EXPECT_EQ(5610, t2[0].txNo);
     EXPECT_EQ(5611, t2[1].txNo);
+}
 
-    delete db;
+TEST(txTests, findWrongTransactions)
+{
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
+    db->setTransactions(transactionsSet2);
+    
+    EXPECT_ANY_THROW(db->findTransactions("35923AFFA00035"));
+
+    EXPECT_ANY_THROW(db->findTransactions("88234612530001237800"));
 }
 
 TEST(txTests, calculateAverageAmount) {
-    Database *db = new TransactionStoreV2();
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
     db->setTransactions(transactionsSet1);
 
     double avg = db->calculateAverageAmount("7230600000000200006669");
 
     EXPECT_EQ(723650, (int)(avg * 100));
-
-    delete db;
 }
 
-TEST(txTest, calculateAverageAmountLimits) 
+TEST(txTests, calculateWrongAverageAmount) {
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
+    db->setTransactions(transactionsSet1);
+
+    EXPECT_ANY_THROW(db->calculateAverageAmount("230600000000200006669"));
+
+    EXPECT_ANY_THROW(db->calculateAverageAmount("SDFSD2523235DDF"));
+}
+
+TEST(txTests, calculateAverageAmountLimits) 
 {
-    Database *db = new TransactionStoreV2();
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
     db->setTransactions(transactionsSet2);
 
     double avg = db->calculateAverageAmount("882346125300012378005");
 
     EXPECT_DOUBLE_EQ(std::numeric_limits<double>::max()/2.0, avg);
 
-    avg = db->calculateAverageAmount("346000348800234771003");
+    avg = db->calculateAverageAmount("34600034880023477100324124340001");
 
     EXPECT_DOUBLE_EQ(std::numeric_limits<double>::min()/2.0, avg);
+}
 
-    delete db;
+TEST(txTests, databseReload)
+{
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
+    db->setTransactions(transactionsSet1);
+
+    double avg = db->calculateAverageAmount("7230600000000200006669");
+    EXPECT_EQ(723650, static_cast<int>(avg * 100.0));
+
+    auto trans = db->findTransaction("50102055581111101998100048", 501);
+    EXPECT_EQ(50100, static_cast<int>(trans.amount * 100.0));
+
+    db->setTransactions(transactionsSet2);
+
+    avg = db->calculateAverageAmount("7230600000000200006669");
+    EXPECT_EQ(14965272, static_cast<int>(avg * 100.0));
+
+    EXPECT_ANY_THROW(db->findTransaction("50102055581111101998100048", 501));
+
+    trans = db->findTransaction("9008420017418290055", 0);
+    EXPECT_EQ(800, static_cast<int>(trans.amount * 100.0));
+}
+
+TEST(txTests, wrongAccountNumbers)
+{
+    std::unique_ptr<Database> db = std::make_unique<TransactionStore>();
+
+    std::vector<Transaction> transactionsSetTemp(1);
+    transactionsSetTemp[0] = {"", 0, 0};
+
+    EXPECT_ANY_THROW(db->setTransactions(transactionsSetTemp));
+
+    transactionsSetTemp[0] = {"$23^4m*fs@!455", 0, 0};
+
+    EXPECT_ANY_THROW(db->setTransactions(transactionsSetTemp));
+
+    transactionsSetTemp[0] = {"FA42350 0239 SD342", 0, 0};
+
+    EXPECT_ANY_THROW(db->setTransactions(transactionsSetTemp));
+
+    transactionsSetTemp[0] = {"5342374239DFSD003248dfsf6385MM01G", 0, 0};
+
+    EXPECT_ANY_THROW(db->setTransactions(transactionsSetTemp));
+
+    transactionsSetTemp[0] = {"2353452342ADFSDF2534", 0, 0};
+    transactionsSetTemp.push_back({"dsdf32525 435345#$6", 0, 0});
+
+    EXPECT_ANY_THROW(db->setTransactions(transactionsSetTemp));
 }
