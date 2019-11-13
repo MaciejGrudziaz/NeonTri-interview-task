@@ -35,7 +35,7 @@ private:
     AccountsMap accounts;
 
     AccountsMap::iterator getAccount(const std::string& accNo);
-    std::vector<Transaction>::iterator transactionsBinarySearch(const AccountsMap::iterator& accountIt, unsigned int txNo);
+    std::vector<Transaction>::iterator transactionBinarySearch(const AccountsMap::iterator& accountIt, unsigned int txNo);
 
     void loadAccountsTransactionData(const std::vector<Transaction> &transactions);
     void checkAccountNumber(std::string accNo);
